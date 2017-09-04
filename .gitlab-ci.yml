@@ -1,0 +1,6 @@
+---
+CI:
+  script:
+    - tox
+  tags:
+    - python

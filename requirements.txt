@@ -1,0 +1,2 @@
+requests==2.12
+docker==2.5.1
