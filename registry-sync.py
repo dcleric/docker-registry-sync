@@ -165,8 +165,8 @@ def main():
             t.start()
             validate_threads.append(t)
 
-    for t in sync_threads:
-        t.join()
+        for t in sync_threads:
+            t.join()
 
 
 if __name__ == '__main__':
