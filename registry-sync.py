@@ -134,9 +134,13 @@ def main():
     for image_entry in difftags_list:
         validate_queue.put(image_entry, timeout=2)
 
+    validate_threads = []
     for i in range(concurrency):
         t = threading.Thread(target=validate_registry_list)
         t.start()
+        validate_threads.append(t)
+
+    for t in validate_threads:
         t.join()
 
     print 'manifest list validate time is: ', (time.time() - validate_time)
@@ -157,9 +161,14 @@ def main():
         print '\n good images to sync: ', good_image_queue.qsize()
         print 'syncing images'
 
+        sync_threads = []
         for i in range(args.concurrency):
-            threads_sync = threading.Thread(target=docker_sync_worker)
-            threads_sync.start()
+            t = threading.Thread(target=docker_sync_worker)
+            t.start()
+            validate_threads.append(t)
+
+    for t in sync_threads:
+        t.join()
 
 
 if __name__ == '__main__':
