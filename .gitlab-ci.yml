@@ -3,4 +3,5 @@ CI:
   script:
     - tox
   tags:
-    - python
+    - python2
+    - tox
