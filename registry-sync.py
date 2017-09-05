@@ -17,7 +17,7 @@ def get_docker_registry_list(registry_prefix):
     catalog = requests.get(url=registry_url + '/v2/_catalog?n=10000')
     repo_list = catalog.json().get('repositories')
     tags_list = []
-    bigtag_list = []
+    fulltags_list = []
 
     for repo in repo_list:
         try:
@@ -34,9 +34,9 @@ def get_docker_registry_list(registry_prefix):
                 repo_dict = dict()
                 repo_dict['name'] = repo_name
                 repo_dict['tag'] = tag
-                bigtag_list.append(repo_dict)
+                fulltags_list.append(repo_dict)
 
-    return bigtag_list
+    return fulltags_list
 
 
 def validate_registry_list():
@@ -129,10 +129,10 @@ def main():
         print 'creating repo list for: ', destination_registry
         destination_registry_list = get_docker_registry_list(destination_registry)
         print 'creating repo diff list...'
-        bigtag_list = get_diff_list(source_registry_list, destination_registry_list)
+        fulltags_list = get_diff_list(source_registry_list, destination_registry_list)
         print 'validating manifests for repo diff list...'
         validate_time = time.time()
-        for image_entry in bigtag_list:
+        for image_entry in fulltags_list:
             validate_queue.put(image_entry, timeout=2)
 
         print concurrency
@@ -154,13 +154,12 @@ def main():
                 print good_tag.get('name') + ":" + good_tag.get('tag')
                 good_queue.task_done()
 
-
     else:
         source_registry_list = get_docker_registry_list(source_registry)
         destination_registry_list = get_docker_registry_list(destination_registry)
-        bigtag_list = get_diff_list(source_registry_list, destination_registry_list)
+        fulltags_list = get_diff_list(source_registry_list, destination_registry_list)
         validate_time = time.time()
-        for image_entry in bigtag_list:
+        for image_entry in fulltags_list:
             validate_queue.put(image_entry, timeout=2)
 
         print concurrency
