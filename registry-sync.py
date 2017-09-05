@@ -9,7 +9,7 @@ import requests
 from docker import errors
 
 validate_queue = Queue.Queue(maxsize=0)
-good_queue = Queue.Queue(maxsize=0)
+good_image_queue = Queue.Queue(maxsize=0)
 
 
 def get_docker_registry_list(registry_prefix):
@@ -49,7 +49,7 @@ def validate_registry_list():
         valid_entry = (requests.get(url='https://' + source_registry + '/v2/%s/manifests/%s'
                                                 % (image_entry.get('name'), image_entry.get('tag'))))
         if valid_entry.status_code != 404:
-            good_queue.put(image_entry)
+            good_image_queue.put(image_entry)
 
     print 'validate queue size', validate_queue.qsize()
     validate_time = time.time()
@@ -64,11 +64,11 @@ def docker_sync_worker():
     while True:
         docker_client = docker.APIClient(base_url='unix://var/run/docker.sock')
         try:
-            image_entry = good_queue.get(timeout=5)
+            image_entry = good_image_queue.get(timeout=5)
         except Queue.Empty:
             print ' docker sync queue is empty'
             break
-        print 'current queue size is:', good_queue.qsize()
+        print 'current queue size is:', good_image_queue.qsize()
         old_tag = (source_registry + '/' + image_entry.get('name') + ':' + image_entry.get('tag'))
         print old_tag
         new_tag = (destination_registry + '/' + image_entry.get('name') + ':' + image_entry.get('tag'))
@@ -101,7 +101,7 @@ def docker_sync_worker():
         except (docker.errors.ImageNotFound, docker.errors.APIError):
             print 'image not found on delete or APIError'
             pass
-            good_queue.task_done()
+            good_image_queue.task_done()
 
 
 def main():
@@ -123,7 +123,7 @@ def main():
     destination_registry = args.destination_registry
     source_registry = args.source_registry
     concurrency = args.concurrency
-    if args.dry_run or args.print_list is True:
+    if args.dry_run or args.print_list:
         print 'creating repo list for: ', source_registry
         source_registry_list = get_docker_registry_list(source_registry)
         print 'creating repo list for: ', destination_registry
@@ -142,17 +142,17 @@ def main():
             t.join()
 
         print 'manifest list validate time is: ', (time.time() - validate_time)
-        print '\n number of good images to sync: ', good_queue.qsize()
+        print '\n number of good images to sync: ', good_image_queue.qsize()
 
-        if args.print_list is True:
+        if args.print_list:
             print 'good images to sync:'
             while True:
                 try:
-                    good_tag = good_queue.get(block=False)
+                    good_tag = good_image_queue.get(block=False)
                 except Queue.Empty:
                     break
                 print good_tag.get('name') + ":" + good_tag.get('tag')
-                good_queue.task_done()
+                good_image_queue.task_done()
 
     else:
         source_registry_list = get_docker_registry_list(source_registry)
@@ -169,7 +169,7 @@ def main():
             threads_validate.join()
 
         print 'manifest list validate time is: ', (time.time() - validate_time)
-        print '\n good images to sync: ', good_queue.qsize()
+        print '\n good images to sync: ', good_image_queue.qsize()
         print "syncing images"
 
         for i in range(args.concurrency):
