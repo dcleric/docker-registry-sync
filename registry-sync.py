@@ -123,54 +123,39 @@ def main():
     destination_registry = args.destination_registry
     source_registry = args.source_registry
     concurrency = args.concurrency
-    if args.dry_run or args.print_list:
-        print 'creating repo list for: ', source_registry
-        source_registry_list = get_docker_registry_list(source_registry)
-        print 'creating repo list for: ', destination_registry
-        destination_registry_list = get_docker_registry_list(destination_registry)
-        print 'creating repo diff list...'
-        fulltags_list = get_diff_list(source_registry_list, destination_registry_list)
-        print 'validating manifests for repo diff list...'
-        validate_time = time.time()
-        for image_entry in fulltags_list:
-            validate_queue.put(image_entry, timeout=2)
+    print 'creating repo list for: ', source_registry
+    source_registry_list = get_docker_registry_list(source_registry)
+    print 'creating repo list for: ', destination_registry
+    destination_registry_list = get_docker_registry_list(destination_registry)
+    print 'creating repo diff list...'
+    difftags_list = get_diff_list(source_registry_list, destination_registry_list)
+    print 'validating manifests for repo diff list...'
+    validate_time = time.time()
+    for image_entry in difftags_list:
+        validate_queue.put(image_entry, timeout=2)
 
-        print concurrency
-        for i in range(concurrency):
-            t = threading.Thread(target=validate_registry_list)
-            t.start()
-            t.join()
+    for i in range(concurrency):
+        t = threading.Thread(target=validate_registry_list)
+        t.start()
+        t.join()
 
-        print 'manifest list validate time is: ', (time.time() - validate_time)
-        print '\n number of good images to sync: ', good_image_queue.qsize()
+    print 'manifest list validate time is: ', (time.time() - validate_time)
+    print '\n number of good images to sync: ', good_image_queue.qsize()
 
-        if args.print_list:
-            print 'good images to sync:'
-            while True:
-                try:
-                    good_tag = good_image_queue.get(block=False)
-                except Queue.Empty:
-                    break
-                print good_tag.get('name') + ":" + good_tag.get('tag')
-                good_image_queue.task_done()
+    if args.print_list:
+        print 'good images to sync:'
+        while True:
+            try:
+                good_tag = good_image_queue.get(block=False)
+            except Queue.Empty:
+                break
+            print good_tag.get('name') + ":" + good_tag.get('tag')
+            good_image_queue.task_done()
 
-    else:
-        source_registry_list = get_docker_registry_list(source_registry)
-        destination_registry_list = get_docker_registry_list(destination_registry)
-        fulltags_list = get_diff_list(source_registry_list, destination_registry_list)
-        validate_time = time.time()
-        for image_entry in fulltags_list:
-            validate_queue.put(image_entry, timeout=2)
-
-        print concurrency
-        for i in range(concurrency):
-            threads_validate = threading.Thread(target=validate_registry_list)
-            threads_validate.start()
-            threads_validate.join()
-
+    if args.dry_run is False:
         print 'manifest list validate time is: ', (time.time() - validate_time)
         print '\n good images to sync: ', good_image_queue.qsize()
-        print "syncing images"
+        print 'syncing images'
 
         for i in range(args.concurrency):
             threads_sync = threading.Thread(target=docker_sync_worker)
