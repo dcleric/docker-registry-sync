@@ -46,13 +46,12 @@ def validate_registry_list():
         except Queue.Empty:
             print 'manifest validate queue is empty'
             break
-        valid_entry = (requests.get(url='https://' + source_registry + '/v2/%s/manifests/%s'
-                                                % (image_entry.get('name'), image_entry.get('tag'))))
-        if valid_entry.status_code != 404:
+        valid_entry = (requests.get(url='https://' + source_registry +
+                                        '/v2/%s/manifests/%s' % (image_entry.get('name'), image_entry.get('tag'))))
+        if valid_entry.status_code == 200:
             good_image_queue.put(image_entry)
 
     print 'validate queue size', validate_queue.qsize()
-    validate_time = time.time()
 
 
 def get_diff_list(list1, list2):
@@ -92,8 +91,7 @@ def docker_sync_worker():
             print 'image not found on push or APIError'
             pass
         try:
-            print threading.current_thread(), 'deleting image', new_tag
-            print threading.current_thread(), 'deleting image', old_tag
+            print threading.current_thread(), 'deleting image', old_tag, new_tag
             docker_remove_old = docker_client.remove_image(old_tag)
             docker_remove_new = docker_client.remove_image(new_tag)
             print docker_remove_new
