@@ -88,7 +88,7 @@ def docker_sync_worker():
             print threading.current_thread(), 'pushing image', new_tag
             docker_push_result = docker_client.push(new_tag)
             print docker_push_result
-        except docker.errors.ImageNotFound, docker.errors.APIError:
+        except (docker.errors.ImageNotFound, docker.errors.APIError):
             print 'image not found on push or APIError'
             pass
         try:
@@ -98,7 +98,7 @@ def docker_sync_worker():
             docker_remove_new = docker_client.remove_image(new_tag)
             print docker_remove_new
             print docker_remove_old
-        except docker.errors.ImageNotFound, docker.errors.APIError:
+        except (docker.errors.ImageNotFound, docker.errors.APIError):
             print 'image not found on delete or APIError'
             pass
             good_queue.task_done()
@@ -145,10 +145,16 @@ def main():
         print '\n number of good images to sync: ', good_queue.qsize()
 
         if args.print_list is True:
-            print 'good images to sync'
-            for good_tag in good_queue.get():
-                print good_tag
-            
+            print 'good images to sync:'
+            while True:
+                try:
+                    good_tag = good_queue.get(block=False)
+                except Queue.Empty:
+                    break
+                print good_tag.get('name') + ":" + good_tag.get('tag')
+                good_queue.task_done()
+
+
     else:
         source_registry_list = get_docker_registry_list(source_registry)
         destination_registry_list = get_docker_registry_list(destination_registry)
