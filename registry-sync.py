@@ -77,12 +77,12 @@ def docker_sync_worker():
             print "Docker pull result " + docker_pull_result + " end"
         except docker.errors.NotFound:
             print "image not found on pulling " + old_tag
-
+            continue
         try:
             docker_client.tag(old_tag, new_tag)
         except docker.errors.ImageNotFound:
             print 'image not found on tag', old_tag, new_tag
-            pass
+            continue
         try:
             print threading.current_thread(), 'pushing image', new_tag
             docker_push_result = docker_client.push(new_tag)
@@ -171,4 +171,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
