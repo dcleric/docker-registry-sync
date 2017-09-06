@@ -15,10 +15,10 @@ good_image_queue = Queue.Queue(maxsize=0)
 def get_docker_registry_list(registry_prefix):
     registry_url = 'https://' + registry_prefix
     catalog = requests.get(url=registry_url + '/v2/_catalog?n=10000')
-    repo_list = catalog.json().get('repositories')
-    tags_list = []
-    fulltags_list = []
-    if catalog.status_code == 200 or 'errors' not in catalog.json():
+    if catalog.status_code == 200 and 'errors' not in catalog.json():
+        repo_list = catalog.json().get('repositories')
+        tags_list = []
+        fulltags_list = []
         for repo in repo_list:
             try:
                 tags = requests.get(
