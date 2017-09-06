@@ -18,14 +18,16 @@ def get_docker_registry_list(registry_prefix):
     repo_list = catalog.json().get('repositories')
     tags_list = []
     fulltags_list = []
-
-    for repo in repo_list:
-        try:
-            tags = requests.get(
-                url=registry_url + '/v2/%s/tags/list' % repo)
-            tags_list.append(tags.json())
-        except:
-            pass
+    if catalog.status_code == 200 or 'errors' not in catalog.json():
+        for repo in repo_list:
+            try:
+                tags = requests.get(
+                    url=registry_url + '/v2/%s/tags/list' % repo)
+                tags_list.append(tags.json())
+            except Exception as e:
+                print ('Error: {}', e)
+    else:
+        raise docker.errors.APIError
 
     for tag_entry in tags_list:
         if 'errors' not in tag_entry:
@@ -65,7 +67,7 @@ def docker_sync_worker():
         try:
             image_entry = good_image_queue.get(timeout=5)
         except Queue.Empty:
-            print ' docker sync queue is empty'
+            print 'docker sync queue is empty'
             break
         print 'current queue size is:', good_image_queue.qsize()
         old_tag = (source_registry + '/' + image_entry.get('name') + ':' + image_entry.get('tag'))
@@ -73,33 +75,19 @@ def docker_sync_worker():
         new_tag = (destination_registry + '/' + image_entry.get('name') + ':' + image_entry.get('tag'))
         print threading.current_thread(), 'pulling image', old_tag
         try:
-            docker_pull_result = docker_client.pull(old_tag)
-            print "Docker pull result " + docker_pull_result + " end"
-        except docker.errors.NotFound:
-            print "image not found on pulling " + old_tag
-            continue
-        try:
+            print 'pulling image:', old_tag
+            docker_client.pull(old_tag)
+            print 'tagging image {} to {}:', old_tag, new_tag
             docker_client.tag(old_tag, new_tag)
-        except docker.errors.ImageNotFound:
-            print 'image not found on tag', old_tag, new_tag
+            print 'pushing image:', new_tag
+            docker_client.push(new_tag)
+            print 'deleting images', old_tag, new_tag
+            docker_client.remove_image(old_tag)
+            docker_client.remove_image(new_tag)
+        except Exception as e:
+            print ('Error: {}', e)
             continue
-        try:
-            print threading.current_thread(), 'pushing image', new_tag
-            docker_push_result = docker_client.push(new_tag)
-            print docker_push_result
-        except (docker.errors.ImageNotFound, docker.errors.APIError):
-            print 'image not found on push or APIError'
-            pass
-        try:
-            print threading.current_thread(), 'deleting image', old_tag, new_tag
-            docker_remove_old = docker_client.remove_image(old_tag)
-            docker_remove_new = docker_client.remove_image(new_tag)
-            print docker_remove_new
-            print docker_remove_old
-        except (docker.errors.ImageNotFound, docker.errors.APIError):
-            print 'image not found on delete or APIError'
-            pass
-            good_image_queue.task_done()
+        good_image_queue.task_done()
 
 
 def main():

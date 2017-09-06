@@ -8,7 +8,7 @@ setup(name='docker-registry-sync',
       zip_safe=False,
       packages=['docker-registry-sync'],
       entry_points={
-        'console_scripts': ['docker-registry-sync=docker-registry-sync:main'],
+        'console_scripts': ['registry-sync=registry-sync:main'],
       },
       install_requires=['requests==2.12', 'docker==2.5.1']
       )
