@@ -6,10 +6,16 @@ import time
 
 import docker
 import requests
-from docker import errors
+from datetime import datetime
+
 
 validate_queue = Queue.Queue(maxsize=0)
 good_image_queue = Queue.Queue(maxsize=0)
+
+
+def get_timestamp():
+    timestamp = datetime.now()
+    return timestamp
 
 
 def get_docker_registry_list(registry_prefix):
@@ -25,9 +31,9 @@ def get_docker_registry_list(registry_prefix):
                     url=registry_url + '/v2/%s/tags/list' % repo)
                 tags_list.append(tags.json())
             except Exception as e:
-                print ('Error: {}', e)
+                print '{} - Error: {}'.format(get_timestamp(), e)
     else:
-        raise docker.errors.APIError
+        raise requests.ConnectionError
 
     for tag_entry in tags_list:
         if 'errors' not in tag_entry:
@@ -46,14 +52,14 @@ def validate_registry_list():
         try:
             image_entry = validate_queue.get(timeout=5)
         except Queue.Empty:
-            print 'manifest validate queue is empty'
+            print '{} - manifest validate queue is empty'.format(get_timestamp())
             break
         valid_entry = (requests.get(url='https://' + source_registry +
                                         '/v2/%s/manifests/%s' % (image_entry.get('name'), image_entry.get('tag'))))
         if valid_entry.status_code == 200:
             good_image_queue.put(image_entry)
 
-    print 'validate queue size', validate_queue.qsize()
+    print '{} - validate queue size: {}'.format(get_timestamp(), validate_queue.qsize())
 
 
 def get_diff_list(list1, list2):
@@ -67,25 +73,23 @@ def docker_sync_worker():
         try:
             image_entry = good_image_queue.get(timeout=5)
         except Queue.Empty:
-            print 'docker sync queue is empty'
+            print '{} - docker sync queue is empty'.format(get_timestamp())
             break
-        print 'current queue size is:', good_image_queue.qsize()
+        print '{} - current queue size is: {}'.format(get_timestamp(), good_image_queue.qsize())
         old_tag = (source_registry + '/' + image_entry.get('name') + ':' + image_entry.get('tag'))
-        print old_tag
         new_tag = (destination_registry + '/' + image_entry.get('name') + ':' + image_entry.get('tag'))
-        print threading.current_thread(), 'pulling image', old_tag
         try:
-            print 'pulling image:', old_tag
+            print '{} - pulling image: {}'.format(get_timestamp(), old_tag())
             docker_client.pull(old_tag)
-            print 'tagging image {} to {}:', old_tag, new_tag
+            print '{} - tagging image {} to {}:'.format(get_timestamp(), old_tag, new_tag)
             docker_client.tag(old_tag, new_tag)
-            print 'pushing image:', new_tag
+            print '{} - pushing image: {}'.format(get_timestamp(), new_tag)
             docker_client.push(new_tag)
-            print 'deleting images', old_tag, new_tag
+            print '{} - deleting images: {}, {}'.format(get_timestamp(), old_tag, new_tag)
             docker_client.remove_image(old_tag)
             docker_client.remove_image(new_tag)
         except Exception as e:
-            print ('Error: {}', e)
+            print '{} - Error: {}'.format(get_timestamp(), e)
             continue
         good_image_queue.task_done()
 
@@ -109,13 +113,13 @@ def main():
     destination_registry = args.destination_registry
     source_registry = args.source_registry
     concurrency = args.concurrency
-    print 'creating repo list for: ', source_registry
+    print '{} - creating repo list for: {}'.format(get_timestamp(), source_registry)
     source_registry_list = get_docker_registry_list(source_registry)
-    print 'creating repo list for: ', destination_registry
+    print '{} - creating repo list for: {}'.format(get_timestamp(), destination_registry)
     destination_registry_list = get_docker_registry_list(destination_registry)
-    print 'creating repo diff list...'
+    print '{} - creating repo diff list...'.format(get_timestamp())
     difftags_list = get_diff_list(source_registry_list, destination_registry_list)
-    print 'validating manifests for repo diff list...'
+    print '{} - validating manifests for repo diff list...'.format(get_timestamp())
     difftags_list_size = len(difftags_list)
     validate_time = time.time()
     for image_entry in difftags_list:
@@ -130,12 +134,12 @@ def main():
     for t in validate_threads:
         t.join()
 
-    print 'total number of images in diff list:', difftags_list_size
-    print 'manifest list validate time is: ', (time.time() - validate_time)
-    print '\n number of good images to sync: ', good_image_queue.qsize()
+    print '{} - total number of images in diff list: {}'.format(get_timestamp(), difftags_list_size)
+    print '{} - manifest list validate time is: {}'.format(get_timestamp, (time.time() - validate_time))
+    print '{} - number of good images to sync: {}'.format(get_timestamp(), good_image_queue.qsize())
 
     if args.print_list:
-        print 'good images to sync:'
+        print '{} - good images to sync:'.format(get_timestamp())
         while True:
             try:
                 good_tag = good_image_queue.get(block=False)
@@ -145,9 +149,9 @@ def main():
             good_image_queue.task_done()
 
     if args.dry_run is False:
-        print 'manifest list validate time is: ', (time.time() - validate_time)
-        print '\n good images to sync: ', good_image_queue.qsize()
-        print 'syncing images'
+        print '{} - manifest list validate time is: {}'.format(get_timestamp, (time.time() - validate_time))
+        print '{} - good images to sync: {}'.format(get_timestamp(), good_image_queue.qsize())
+        print '{} - start syncing images'.format(get_timestamp())
 
         sync_threads = []
         for i in range(args.concurrency):
