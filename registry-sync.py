@@ -116,6 +116,7 @@ def main():
     print 'creating repo diff list...'
     difftags_list = get_diff_list(source_registry_list, destination_registry_list)
     print 'validating manifests for repo diff list...'
+    difftags_list_size = len(difftags_list)
     validate_time = time.time()
     for image_entry in difftags_list:
         validate_queue.put(image_entry, timeout=2)
@@ -129,6 +130,7 @@ def main():
     for t in validate_threads:
         t.join()
 
+    print 'total number of images in diff list:', difftags_list_size
     print 'manifest list validate time is: ', (time.time() - validate_time)
     print '\n number of good images to sync: ', good_image_queue.qsize()
 
