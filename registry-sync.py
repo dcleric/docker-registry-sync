@@ -31,7 +31,8 @@ def get_docker_registry_list(registry_prefix):
             try:
                 tags = requests.get(
                     url=registry_url + '/v2/%s/tags/list' % repo)
-                tags_list.append(tags.json())
+                if tags.status_code == 200 and 'errors' not in tags.json():
+                    tags_list.append(tags.json())
             except Exception as e:
                 print '{} - Error: {}'.format(get_timestamp(), e)
     else:
@@ -137,7 +138,7 @@ def main():
         t.join()
 
     print '{} - total number of images in diff list: {}'.format(get_timestamp(), difftags_list_size)
-    print '{} - manifest list validate time is: {}'.format(get_timestamp, (time.time() - validate_time))
+    print '{} - manifest list validate time is: {}'.format(get_timestamp(), (time.time() - validate_time))
     print '{} - number of good images to sync: {}'.format(get_timestamp(), good_image_queue.qsize())
 
     if args.print_list:
