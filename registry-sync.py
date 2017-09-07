@@ -8,7 +8,9 @@ import docker
 import requests
 from datetime import datetime
 
-
+destination_registry = ""
+source_registry = ""
+concurrency = 0
 validate_queue = Queue.Queue(maxsize=0)
 good_image_queue = Queue.Queue(maxsize=0)
 
@@ -79,7 +81,7 @@ def docker_sync_worker():
         old_tag = (source_registry + '/' + image_entry.get('name') + ':' + image_entry.get('tag'))
         new_tag = (destination_registry + '/' + image_entry.get('name') + ':' + image_entry.get('tag'))
         try:
-            print '{} - pulling image: {}'.format(get_timestamp(), old_tag())
+            print '{} - pulling image: {}'.format(get_timestamp(), old_tag)
             docker_client.pull(old_tag)
             print '{} - tagging image {} to {}:'.format(get_timestamp(), old_tag, new_tag)
             docker_client.tag(old_tag, new_tag)
@@ -95,6 +97,9 @@ def docker_sync_worker():
 
 
 def main():
+    global destination_registry
+    global source_registry
+    global concurrency
     parser = argparse.ArgumentParser()
     parser.add_argument('--to', help='Destination registry without https',
                         action='store', required=True, dest='destination_registry')
@@ -107,9 +112,6 @@ def main():
     parser.add_argument('--print-list', help='print good images to be synced',
                         action='store_true', dest='print_list')
     args = parser.parse_args()
-    global destination_registry
-    global source_registry
-    global concurrency
     destination_registry = args.destination_registry
     source_registry = args.source_registry
     concurrency = args.concurrency
@@ -157,7 +159,7 @@ def main():
         for i in range(args.concurrency):
             t = threading.Thread(target=docker_sync_worker)
             t.start()
-            validate_threads.append(t)
+            sync_threads.append(t)
 
         for t in sync_threads:
             t.join()
