@@ -59,7 +59,14 @@ def validate_registry_list():
             break
         valid_entry = (requests.get(url='https://' + source_registry +
                                         '/v2/%s/manifests/%s' % (image_entry.get('name'), image_entry.get('tag'))))
-        if valid_entry.status_code == 200:
+        if valid_entry.status_code == 200 and 'errors' not in valid_entry.json():
+            blob_list = valid_entry.json().get('fsLayers')
+            for blob_entry in blob_list:
+                blob_result = (requests.head(url='https://' + source_registry +
+                                             '/v2/%s/blobs/%s' % (image_entry.get('name'), blob_entry.get('blobSum'))))
+                if blob_result.status_code != 200:
+                    break
+
             good_image_queue.put(image_entry)
 
     print '{} - validate queue size: {}'.format(get_timestamp(), validate_queue.qsize())
@@ -112,18 +119,26 @@ def main():
                         action='store', type=int, default=1, dest='concurrency')
     parser.add_argument('--print-list', help='print good images to be synced',
                         action='store_true', dest='print_list')
+    parser.add_argument('--no-diff', help='Recursively sync source to destination',
+                        action='store_true', dest='no_diff')
     args = parser.parse_args()
     destination_registry = args.destination_registry
     source_registry = args.source_registry
     concurrency = args.concurrency
-    print '{} - creating repo list for: {}'.format(get_timestamp(), source_registry)
+    print '{} - creating repo list for source: {}'.format(get_timestamp(), source_registry)
     source_registry_list = get_docker_registry_list(source_registry)
-    print '{} - creating repo list for: {}'.format(get_timestamp(), destination_registry)
-    destination_registry_list = get_docker_registry_list(destination_registry)
-    print '{} - creating repo diff list...'.format(get_timestamp())
-    difftags_list = get_diff_list(source_registry_list, destination_registry_list)
-    print '{} - validating manifests for repo diff list...'.format(get_timestamp())
+    if args.no_diff:
+        difftags_list = source_registry_list
+    else:
+
+        print '{} - creating repo list for destination: {}'.format(get_timestamp(), destination_registry)
+        destination_registry_list = get_docker_registry_list(destination_registry)
+        print '{} - creating repo diff list...'.format(get_timestamp())
+        difftags_list = get_diff_list(source_registry_list, destination_registry_list)
+
+    print '{} - validating manifests...'.format(get_timestamp())
     difftags_list_size = len(difftags_list)
+    print difftags_list_size
     validate_time = time.time()
     for image_entry in difftags_list:
         validate_queue.put(image_entry, timeout=2)
