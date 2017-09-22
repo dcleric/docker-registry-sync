@@ -60,19 +60,24 @@ def validate_registry_list():
         valid_entry = (requests.get(url='https://' + source_registry +
                                         '/v2/%s/manifests/%s' % (image_entry.get('name'), image_entry.get('tag'))))
         if valid_entry.status_code == 200 and 'errors' not in valid_entry.json():
-            blob_list = valid_entry.json().get('fsLayers')
-            image_is_good = True
-            for blob_entry in blob_list:
-                blob_result = (requests.head(url='https://' + source_registry +
-                                             '/v2/%s/blobs/%s' % (image_entry.get('name'), blob_entry.get('blobSum'))))
-                if blob_result.status_code != 200:
-                    print blob_result.url, blob_result.status_code
-                    image_is_good = False
-                    break
+            image_is_good = validate_image(valid_entry, image_entry)
+
             if image_is_good:
                 good_image_queue.put(image_entry)
 
     print '{} - validate queue size: {}'.format(get_timestamp(), validate_queue.qsize())
+
+
+def validate_image(valid_entry, image_entry):
+    blob_list = valid_entry.json().get('fsLayers')
+    image_is_good = True
+    for blob_entry in blob_list:
+        blob_result = (requests.head(url='https://' + source_registry +
+                                         '/v2/%s/blobs/%s' % (image_entry.get('name'), blob_entry.get('blobSum'))))
+        if blob_result.status_code != 200:
+            image_is_good = False
+            break
+    return image_is_good
 
 
 def get_diff_list(list1, list2):
