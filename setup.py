@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='docker_registry_sync',
-      version='0.3',
+      version='0.4',
       description='Tool for syncing 2 docker registries',
       url='https://gitlab.2gis.ru/continuous-delivery/docker-registry-sync',
       license='MIT',
