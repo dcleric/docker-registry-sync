@@ -41,7 +41,7 @@ def get_docker_registry_list(registry_prefix):
     for tag_entry in tags_list:
         if 'errors' not in tag_entry:
             repo_name = tag_entry.get('name')
-            if tag_entry.get('name') is not None:
+            if tag_entry.get('tags') is not None:
                 for tag in tag_entry.get('tags'):
                     repo_dict = dict()
                     repo_dict['name'] = repo_name
