@@ -86,6 +86,27 @@ def get_diff_list(list1, list2):
     return diff_list
 
 
+def get_manifest_digest(image_name, image_tag):
+    try:
+        manifest_response = (requests.get(url='https://{}/v2/{}/manifests/{}'.format(source_registry, image_name, image_tag),
+                  headers={'Accept': 'application/vnd.docker.distribution.manifest.v2+json'})).json()
+        if manifest_response.status_code == 200:
+            manifest_digest = manifest_response.get('config').get('digest')
+    except Exception as e:
+        print('{} - Error: {}'.format(get_timestamp(), e))
+    return manifest_digest
+
+
+def delete_image_by_digest(image_name, image_tag, manifest_digest):
+    try:
+        manifest_response = (
+        requests.delete(url='https://{}/v2/{}/manifests/{}'.format(source_registry, image_name, image_tag),
+                     headers={'Accept': 'application/vnd.docker.distribution.manifest.v2+json'})).json()
+    except Exception as e:
+        print('{} - Error: {}'.format(get_timestamp(), e))
+    return manifest_response.status_code
+
+
 def docker_sync_worker():
     while True:
         docker_client = docker.APIClient(base_url='unix://var/run/docker.sock')
@@ -130,6 +151,9 @@ def main():
                         action='store_true', dest='print_list')
     parser.add_argument('--no-diff', help='Recursively sync source to destination',
                         action='store_true', dest='no_diff')
+    parser.add_argument('--purge', help='Purge images in destination,'
+                                        'if it currently doesnt exist in source (DANGER!)',
+                        action='store', default=False, dest='image_purge')
     args = parser.parse_args()
     destination_registry = args.destination_registry
     source_registry = args.source_registry
@@ -144,7 +168,7 @@ def main():
         destination_registry_list = get_docker_registry_list(destination_registry)
         print('{} - creating repo diff list...'.format(get_timestamp()))
         difftags_list = get_diff_list(source_registry_list, destination_registry_list)
-
+#TODO: Здесь воткнуть условие про очистку и драй-ран
     print('{} - validating manifests...'.format(get_timestamp()))
     difftags_list_size = len(difftags_list)
     print(difftags_list_size)
