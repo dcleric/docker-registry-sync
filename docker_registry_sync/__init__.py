@@ -90,8 +90,9 @@ def get_diff_list(list1, list2):
 def get_manifest_digest(image_name, image_tag):
     try:
         manifest_response = (requests.get(
-            url='https://{}/v2/{}/manifests/{}'.format(source_registry, image_name, image_tag),
-                  headers={'Accept': 'application/vnd.docker.distribution.manifest.v2+json'})).json()
+            url='https://{}/v2/{}/manifests/{}'.format(
+                source_registry, image_name, image_tag),
+            headers={'Accept': 'application/vnd.docker.distribution.manifest.v2+json'})).json()
         if manifest_response.status_code == 200:
             manifest_digest = manifest_response.get('config').get('digest')
     except Exception as e:
