@@ -187,16 +187,9 @@ def main():
         for image_entry in purge_diff_list:
             print('{}:{}'.format(image_entry.get('name'), image_entry.get('tag')))
 
-        for image_entry in purge_diff_list:
-            image_manifest = get_manifest_digest(
-                image_entry.get('name'), image_entry.get('tag'))
-            delete_result = delete_image_by_digest(
-                image_entry.get('name'), image_entry.get('tag'), image_manifest)
-            print('image {}:{} purged from repo, response:{}'.format(image_entry.get(
-                'name'), image_entry.get('tag'), delete_result))
-
     if args.no_diff:
         difftags_list = source_registry_list
+        
         print('{} - creating repo diff list...'.format(get_timestamp()))
     difftags_list = get_diff_list(source_registry_list, destination_registry_list)
     print('{} - validating manifests...'.format(get_timestamp()))
