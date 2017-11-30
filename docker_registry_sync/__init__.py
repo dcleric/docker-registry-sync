@@ -189,8 +189,7 @@ def main():
 
     if args.no_diff:
         difftags_list = source_registry_list
-        
-        print('{} - creating repo diff list...'.format(get_timestamp()))
+    print('{} - creating repo diff list...'.format(get_timestamp()))
     difftags_list = get_diff_list(source_registry_list, destination_registry_list)
     print('{} - validating manifests...'.format(get_timestamp()))
     difftags_list_size = len(difftags_list)
