@@ -175,10 +175,10 @@ def main():
         if args.dry_run is False:
             print('{} - purging images from destination repo:'.format(get_timestamp()))
             for image_entry in purge_diff_list:
-                image_manifest = get_manifest_digest(destination_registry,
-                    image_entry.get('name'), image_entry.get('tag'))
-                delete_result = delete_image_by_digest(destination_registry,
-                    image_entry.get('name'), image_manifest)
+                image_manifest = get_manifest_digest(
+                    destination_registry, image_entry.get('name'), image_entry.get('tag'))
+                delete_result = delete_image_by_digest(
+                    destination_registry, image_entry.get('name'), image_manifest)
                 print(
                     'image {}:{} purged from repo, response:{}'.format(
                         image_entry.get('name'), image_entry.get('tag'), delete_result))
