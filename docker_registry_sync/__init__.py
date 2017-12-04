@@ -88,7 +88,7 @@ def get_diff_list(list1, list2):
 
 
 def get_manifest_digest(destination_registry, image_name, image_tag):
-    manifest_digest = str()
+    manifest_digest = ""
     try:
         manifest_response = (requests.head(
             url='https://{}/v2/{}/manifests/{}'.format(
