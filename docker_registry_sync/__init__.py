@@ -3,6 +3,7 @@ import argparse
 import itertools
 import threading
 import time
+import sys
 
 import docker
 import requests
@@ -86,6 +87,32 @@ def get_diff_list(list1, list2):
     return diff_list
 
 
+def get_manifest_digest(destination_registry, image_name, image_tag):
+    manifest_digest = ""
+    try:
+        manifest_response = (requests.head(
+            url='https://{}/v2/{}/manifests/{}'.format(
+                destination_registry, image_name, image_tag),
+            headers={'Accept': 'application/vnd.docker.distribution.manifest.v2+json'}))
+        if manifest_response.status_code == 200:
+            manifest_digest = manifest_response.headers.get('Docker-Content-Digest')
+    except Exception as e:
+        print('{} - Error: {}'.format(get_timestamp(), e))
+    return manifest_digest
+
+
+def delete_image_by_digest(destination_registry, image_name, manifest_digest):
+    try:
+        manifest_response = (
+            requests.delete(
+                url='https://{}/v2/{}/manifests/{}'.format(
+                    destination_registry, image_name, manifest_digest),
+                headers={'Accept': 'application/vnd.docker.distribution.manifest.v2+json'}))
+    except Exception as e:
+        print('{} - Error: {}'.format(get_timestamp(), e))
+    return manifest_response.status_code
+
+
 def docker_sync_worker():
     while True:
         docker_client = docker.APIClient(base_url='unix://var/run/docker.sock')
@@ -130,21 +157,41 @@ def main():
                         action='store_true', dest='print_list')
     parser.add_argument('--no-diff', help='Recursively sync source to destination',
                         action='store_true', dest='no_diff')
+    parser.add_argument('--purge', help='Purge images in destination,'
+                                        'if it currently doesnt exist in source (DANGER!)',
+                        action='store_true', default=False, dest='image_purge')
     args = parser.parse_args()
     destination_registry = args.destination_registry
     source_registry = args.source_registry
     concurrency = args.concurrency
-    print('{} - creating repo list for source: {}'.format(get_timestamp(), source_registry))
+    print('{} - creating repo list for source: {}'.format(
+        get_timestamp(), source_registry))
     source_registry_list = get_docker_registry_list(source_registry)
+    print('{} - creating repo list for destination: {}'.format(
+        get_timestamp(), destination_registry))
+    destination_registry_list = get_docker_registry_list(destination_registry)
+    if args.image_purge:
+        purge_diff_list = get_diff_list(destination_registry_list, source_registry_list)
+        if args.dry_run is False:
+            print('{} - purging images from destination repo:'.format(get_timestamp()))
+            for image_entry in purge_diff_list:
+                image_manifest = get_manifest_digest(
+                    destination_registry, image_entry.get('name'), image_entry.get('tag'))
+                delete_result = delete_image_by_digest(
+                    destination_registry, image_entry.get('name'), image_manifest)
+                print(
+                    'image {}:{} purged from repo, response:{}'.format(
+                        image_entry.get('name'), image_entry.get('tag'), delete_result))
+            print('exiting after purge operation')
+            sys.exit()
+        print('following images will be PURGED from destination repo:')
+        for image_entry in purge_diff_list:
+            print('{}:{}'.format(image_entry.get('name'), image_entry.get('tag')))
+        sys.exit()
     if args.no_diff:
         difftags_list = source_registry_list
-    else:
-
-        print('{} - creating repo list for destination: {}'.format(get_timestamp(), destination_registry))
-        destination_registry_list = get_docker_registry_list(destination_registry)
-        print('{} - creating repo diff list...'.format(get_timestamp()))
-        difftags_list = get_diff_list(source_registry_list, destination_registry_list)
-
+    print('{} - creating repo diff list...'.format(get_timestamp()))
+    difftags_list = get_diff_list(source_registry_list, destination_registry_list)
     print('{} - validating manifests...'.format(get_timestamp()))
     difftags_list_size = len(difftags_list)
     print(difftags_list_size)
